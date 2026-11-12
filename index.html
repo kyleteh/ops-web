@@ -548,20 +548,24 @@
       };
     });
   } else {
+    // Kyle 12/11: no banner once the device is set up; the two device buttons sit behind a small footer link
     document.addEventListener('DOMContentLoaded', function () {
-      showBanner(
-        "Ops · this device is set up (link + key saved here only). "
-        + '<button type="button" id="ops-api-clear" style="margin-left:8px;padding:2px 8px;font-size:12px">Clear saved API</button>'
-        + '<button type="button" id="ops-key-forget" style="margin-left:6px;padding:2px 8px;font-size:12px">Forget key on this device</button>',
-        false
-      );
-      var c = document.getElementById('ops-api-clear');
-      if (c) c.onclick = function () {
+      var box = document.createElement('div');
+      box.id = 'ops-device';
+      box.style.cssText = 'position:fixed;right:8px;bottom:6px;z-index:9998;font:11px/1.4 system-ui,sans-serif;text-align:right';
+      box.innerHTML = '<div id="ops-device-panel" style="display:none;margin-bottom:4px;padding:8px;background:#fff;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.12)">'
+        + '<div style="margin-bottom:6px;color:#374151">Link and key are saved on this device only.</div>'
+        + '<button type="button" id="ops-api-clear" style="padding:2px 8px;font-size:12px">Clear saved API</button> '
+        + '<button type="button" id="ops-key-forget" style="padding:2px 8px;font-size:12px">Forget key on this device</button></div>'
+        + '<a href="javascript:void(0)" id="ops-device-toggle" style="color:#9ca3af;text-decoration:none">Device</a>';
+      document.body.appendChild(box);
+      var panel = document.getElementById('ops-device-panel');
+      document.getElementById('ops-device-toggle').onclick = function () { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; };
+      document.getElementById('ops-api-clear').onclick = function () {
         try { localStorage.removeItem('ops_api'); } catch (e) {}
         location.reload();
       };
-      var fk = document.getElementById('ops-key-forget');
-      if (fk) fk.onclick = function () {
+      document.getElementById('ops-key-forget').onclick = function () {
         try { localStorage.removeItem('ops_key'); Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); }); } catch (e) {}
         location.reload();
       };
