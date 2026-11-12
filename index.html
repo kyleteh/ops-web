@@ -464,6 +464,7 @@
 /* Phase 2 static shell: resolve /exec API URL + banner when missing. */
 (function () {
   var DEFAULT_API = "";
+  window.OPS_ENC = {"v": 1, "it": 600000, "s": "tS8OaA5DELaXm7qmZshXgQ==", "iv": "mOZSBWlh9G2asBsP", "ct": "86hJy7ppFE2Ci+qFgYfPFtviAVPuoEjOmq/xBruxya6UAZ++zoBfHNP/ijokk29jk6+a351OlgbBw8uboFg9pu/nOoI7iPlkqV3vUY/lgACHfoGnhU6glvkFFyRPeesKZ0/MnH4K3VVcxK+NrfBja7WFY5XDDA5DTf18P4RVP00="};
   function hashParam(name) {
     var h = String(location.hash || '');
     var m = h.match(new RegExp('(?:^#|&)' + name + '=([^&]*)'));
@@ -529,7 +530,46 @@
     el.style.borderBottomColor = bad ? '#f87171' : '#f59e0b';
     el.innerHTML = msg;
   }
-  if (!api) {
+
+  if (!api && window.OPS_ENC && window.crypto && crypto.subtle) {
+    var gateDec = function (pw) {
+      var E = window.OPS_ENC, ub = function (b) { var s = atob(b), a = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; };
+      return crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']).then(function (base) {
+        return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: ub(E.s), iterations: E.it }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+      }).then(function (k) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: ub(E.iv) }, k, ub(E.ct)); })
+        .then(function (b) { return new TextDecoder().decode(b); });
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+      var g = document.createElement('div');
+      g.id = 'ops-gate';
+      g.style.cssText = 'position:fixed;inset:0;z-index:10001;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font:15px/1.4 system-ui,sans-serif';
+      g.innerHTML = '<form id="ops-gate-form" style="background:#fff;padding:24px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);width:min(320px,86vw);text-align:center">'
+        + '<img src="apple-touch-icon.png" alt="" style="width:64px;height:64px;border-radius:50%"><h2 style="margin:8px 0 14px;font-size:18px">SAM Novena Ops</h2>'
+        + '<input id="ops-gate-pw" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" placeholder="Password" '
+        + 'style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;border:1px solid #d1d5db;border-radius:6px">'
+        + '<button type="submit" id="ops-gate-go" style="margin-top:12px;width:100%;padding:10px;font-size:16px;background:#2563eb;color:#fff;border:0;border-radius:6px">Enter</button>'
+        + '<div id="ops-gate-msg" style="margin-top:10px;min-height:1.4em;color:#b91c1c;font-size:14px"></div></form>';
+      document.body.appendChild(g);
+      var inp = document.getElementById('ops-gate-pw'), msg = document.getElementById('ops-gate-msg'), btn = document.getElementById('ops-gate-go');
+      setTimeout(function () { inp.focus(); }, 50);
+      document.getElementById('ops-gate-form').onsubmit = function (ev) {
+        ev.preventDefault();
+        var pw = String(inp.value || '').replace(/\s+/g, '').toLowerCase();
+        if (!pw) { inp.focus(); return; }
+        btn.disabled = true; msg.style.color = '#6b7280'; msg.textContent = 'Checking\u2026';
+        gateDec(pw).then(function (u) {
+          if (!/^https:\/\//.test(u)) throw new Error('bad');
+          try {
+            localStorage.setItem('ops_api', u); localStorage.setItem('ops_key', pw); localStorage.removeItem('ops_cid');
+            Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); });
+          } catch (e) {}
+          location.reload();
+        }, function () {
+          btn.disabled = false; msg.style.color = '#b91c1c'; msg.textContent = 'Wrong password. Try again.'; inp.select();
+        });
+      };
+    });
+  } else if (!api) {
     document.addEventListener('DOMContentLoaded', function () {
       showBanner(
         "Ops · first time on this device: paste the Ops link, then the key (both kept only on this device). "
@@ -558,7 +598,7 @@
       box.innerHTML = '<div id="ops-device-panel" style="display:none;margin-bottom:4px;padding:8px;background:#fff;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.12)">'
         + '<div style="margin-bottom:6px;color:#374151">Link and key are saved on this device only.</div>'
         + '<button type="button" id="ops-api-clear" style="padding:2px 8px;font-size:12px">Clear saved API</button> '
-        + '<button type="button" id="ops-key-forget" style="padding:2px 8px;font-size:12px">Forget key on this device</button></div>'
+        + '<button type="button" id="ops-key-forget" style="padding:2px 8px;font-size:12px">Forget password on this device</button></div>'
         + '<a href="javascript:void(0)" id="ops-device-toggle" style="color:#9ca3af;text-decoration:none">Device</a>';
       document.body.appendChild(box);
       var panel = document.getElementById('ops-device-panel');
@@ -1377,14 +1417,14 @@ function opsAskKey(code, detail) {
     var root = document.createElement('div');
     root.id = 'ops-key-root';
     root.style.cssText = 'position:fixed;inset:0;z-index:10000';
-    var title = code === 'locked' ? 'Locked for now' : code === 'setup' ? 'Server not set up' : had ? 'Key rejected' : 'Enter your Ops key';
-    var msg = code === 'locked' ? esc(detail || 'Too many wrong keys from this device. Try again in 15 minutes.')
+    var title = code === 'locked' ? 'Locked for now' : code === 'setup' ? 'Server not set up' : had ? 'Wrong password' : 'Enter your Ops password';
+    var msg = code === 'locked' ? esc(detail || 'Too many wrong passwords from this device. Try again in 15 minutes.')
       : code === 'setup' ? esc(detail || 'The access key is not set up on the server yet.')
-      : (had ? 'This device\u2019s saved key was rejected. Nothing was read or saved. Type the key again.' : 'Type the access key once on this device. It is remembered here, so you will not be asked again.');
+      : (had ? 'This device\u2019s saved password no longer works. Nothing was read or saved. Type the password again.' : 'Type the Ops password once on this device. It is remembered here.');
     var input = code === 'auth' ? '<p><input id="ops-key-input" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" ' +
-      'style="width:100%;box-sizing:border-box;padding:8px;font:14px monospace" placeholder="Ops access key"></p>' : '';
+      'style="width:100%;box-sizing:border-box;padding:8px;font:14px monospace" placeholder="Password"></p>' : '';
     root.innerHTML = '<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true"><h3>' + esc(title) + '</h3><div class="mbody"><p>' + msg + '</p>' + input +
-      '</div><div class="actions">' + (code === 'auth' ? '<button type="button" data-k="cancel">Cancel</button><button type="button" class="pri" data-k="ok">Save key</button>'
+      '</div><div class="actions">' + (code === 'auth' ? '<button type="button" data-k="cancel">Cancel</button><button type="button" class="pri" data-k="ok">Enter</button>'
       : '<button type="button" class="pri" data-k="cancel">OK</button>') + '</div></div></div>';
     document.body.appendChild(root);
     var inp = root.querySelector('#ops-key-input');
