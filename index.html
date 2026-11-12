@@ -497,6 +497,9 @@
         localStorage.setItem('ops_key', linkKey);
         Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); });
       }
+      // Kyle 12/11: the setup link also gives this device a new id, so a device locked by earlier wrong keys
+      // works again at once (the page makes a fresh ops_cid on its next server call)
+      localStorage.removeItem('ops_cid');
     } catch (e) {}
   }
   if (linkKey || /(?:^#|&)key=/.test(String(location.hash || ''))) cleanHashKeepRoute();
