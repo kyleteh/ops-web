@@ -462,16 +462,24 @@
 /* Phase 2 static shell: resolve /exec API URL + banner when missing. */
 (function () {
   var DEFAULT_API = "";
-  function fromHash() {
+  function hashParam(name) {
     var h = String(location.hash || '');
-    var m = h.match(/(?:^#|&)api=([^&]+)/);
+    var m = h.match(new RegExp('(?:^#|&)' + name + '=([^&]*)'));
     if (!m) return '';
-    try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+    try { return decodeURIComponent(m[1].replace(/\+/g, '%20')); } catch (e) { return m[1]; }
+  }
+  function fromHash() { return hashParam('api'); }
+  /* one-click setup link (#api=<exec>&key=<key>): same form the key prompt saves (no spaces, lower-case);
+     a 24-character key typed without dashes gets them back (xxxx-xxxx-…), which is the form the server checks */
+  function keyFromHash() {
+    var k = hashParam('key').replace(/\s+/g, '').toLowerCase();
+    if (/^[a-z0-9]{24}$/.test(k)) k = k.match(/.{4}/g).join('-');
+    return k;
   }
   function cleanHashKeepRoute() {
     var h = String(location.hash || '');
-    if (!h || h.indexOf('api=') < 0) return;
-    var next = h.replace(/(?:^#|&)api=[^&]*/g, '').replace(/^&/, '#').replace(/^#$/, '');
+    if (!h || (h.indexOf('api=') < 0 && h.indexOf('key=') < 0)) return;
+    var next = h.replace(/(?:^#|&)(?:api|key)=[^&]*/g, '').replace(/^&/, '#').replace(/^#$/, '');
     try { history.replaceState(null, '', location.pathname + location.search + next); } catch (e) {}
   }
   var fromQ = '';
@@ -480,6 +488,18 @@
     fromQ = sp.get('api') || '';
   } catch (e) {}
   var api = fromHash() || fromQ || '';
+  var linkKey = keyFromHash();
+  if (linkKey) {
+    // saved once from the link, then removed from the address bar: a later reload never re-saves it, so a wrong or
+    // locked key goes through the normal key prompt (no loop)
+    try {
+      if (localStorage.getItem('ops_key') !== linkKey) {
+        localStorage.setItem('ops_key', linkKey);
+        Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); });
+      }
+    } catch (e) {}
+  }
+  if (linkKey || /(?:^#|&)key=/.test(String(location.hash || ''))) cleanHashKeepRoute();
   if (api) {
     try { localStorage.setItem('ops_api', api); } catch (e) {}
     cleanHashKeepRoute();
