@@ -464,7 +464,30 @@
 /* Phase 2 static shell: resolve /exec API URL + banner when missing. */
 (function () {
   var DEFAULT_API = "";
+  /* Kyle 12/11: a device unused for more than 24 h forgets the password (and the cached pages); every successful
+     open or server call restarts the 24 h. Devices set up before this change start counting now. */
+  var OPS_IDLE_MS = 24 * 3600 * 1000;
+  function opsIdleExpired() {
+    try {
+      if (!localStorage.getItem('ops_key')) return false;
+      var t = Number(localStorage.getItem('ops_last') || 0);
+      if (t && Date.now() - t > OPS_IDLE_MS) return true;
+      localStorage.setItem('ops_last', String(Date.now()));  /* a successful open restarts the 24 h too */
+      return false;
+    } catch (e) { return false; }
+  }
+  function opsIdleForget() {
+    try {
+      localStorage.removeItem('ops_key'); localStorage.removeItem('ops_last');
+      if (window.OPS_ENC) localStorage.removeItem('ops_api');
+      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); });
+    } catch (e) {}
+  }
   window.OPS_ENC = {"v": 1, "it": 600000, "s": "tS8OaA5DELaXm7qmZshXgQ==", "iv": "mOZSBWlh9G2asBsP", "ct": "86hJy7ppFE2Ci+qFgYfPFtviAVPuoEjOmq/xBruxya6UAZ++zoBfHNP/ijokk29jk6+a351OlgbBw8uboFg9pu/nOoI7iPlkqV3vUY/lgACHfoGnhU6glvkFFyRPeesKZ0/MnH4K3VVcxK+NrfBja7WFY5XDDA5DTf18P4RVP00="};
+  if (opsIdleExpired()) opsIdleForget();
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && opsIdleExpired()) { opsIdleForget(); location.reload(); }
+  });
   function hashParam(name) {
     var h = String(location.hash || '');
     var m = h.match(new RegExp('(?:^#|&)' + name + '=([^&]*)'));
@@ -503,6 +526,7 @@
       // Kyle 12/11: the setup link also gives this device a new id, so a device locked by earlier wrong keys
       // works again at once (the page makes a fresh ops_cid on its next server call)
       localStorage.removeItem('ops_cid');
+      localStorage.setItem('ops_last', String(Date.now()));
     } catch (e) {}
   }
   if (linkKey || /(?:^#|&)key=/.test(String(location.hash || ''))) cleanHashKeepRoute();
@@ -560,7 +584,7 @@
         gateDec(pw).then(function (u) {
           if (!/^https:\/\//.test(u)) throw new Error('bad');
           try {
-            localStorage.setItem('ops_api', u); localStorage.setItem('ops_key', pw); localStorage.removeItem('ops_cid');
+            localStorage.setItem('ops_api', u); localStorage.setItem('ops_key', pw); localStorage.removeItem('ops_cid'); localStorage.setItem('ops_last', String(Date.now()));
             Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); });
           } catch (e) {}
           location.reload();
@@ -1494,7 +1518,7 @@ function rawCall(fn, args, label) {
     }
     var go = function () {
       if (!opsKey()) { opsOnAuthFail('auth', fn, '', go, fail); return; }
-      OPS_TRANSPORT.post(api, fn, args || [], { readFns: READ_FNS, key: opsKey(), cid: opsCid() }).then(function (r) { log(true); resolve(r); }, function (e) {
+      OPS_TRANSPORT.post(api, fn, args || [], { readFns: READ_FNS, key: opsKey(), cid: opsCid() }).then(function (r) { log(true); try { localStorage.setItem('ops_last', String(Date.now())); } catch (e) {} resolve(r); }, function (e) {
         var code = opsAuthCode(e);
         if (code) { opsOnAuthFail(code, fn, opsAuthText(e), go, fail); return; }
         fail(e);
