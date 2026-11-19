@@ -3089,7 +3089,7 @@ function suSubmit() {
 </script>
 
   <script>
-(window.OPS_FILES = window.OPS_FILES || {})['PagesB'] = 'v0.3.12'; // OPS_BUILD PagesB v0.3.12 (the server checks this line, not the comment)
+(window.OPS_FILES = window.OPS_FILES || {})['PagesB'] = 'v0.3.21'; // OPS_BUILD PagesB v0.3.21 (the server checks this line, not the comment)
 /* ===== Pages B: Renewals (+ all packages) \u00B7 makeup dialogs (used on the student page) \u00B7 To-do (Inbox) ===== */
 
 /* ---------------- Makeups ----------------
@@ -3246,10 +3246,11 @@ function mkLinkModal(ev, btn) {
 
 /* ---------------- Packages ---------------- */
 var PK_FILTERS = [['active', 'Active'], ['warn', 'Nearly used (\u2265 total\u22122)'], ['paused', 'Paused'], ['closed', 'Completed / closed'], ['all', 'All'], ['none', 'Studying without a package'], ['void', 'Void']];
-/* ---------------- Renewals (v0.3.6; replaces Packages) ----------------
- * Default: students near / at / past the end of their 12 (or package size), most urgent first, with one-click
- * "Notified Danny" and "Renewed"; each row also shows the makeups the student is still owed. Tab 2 = all package records. */
+/* ---------------- Renewals (v0.3.6; replaces Packages; v0.3.21 auto-renew) ----------------
+ * v0.3.21 (Kyle 19 Nov 2026): nearly-due packages auto-renew — no Danny notify — unless withdrawal.
+ * P6 near PSLE → Finish. 旧生 (except 2x/week) are omitted server-side. Tab 2 = all package records. */
 var RN_STATE = { overdue: ['Overdue', 'bad'], unhandled: ['Reached, not handled', 'bad'], due: ['Due now', 'warn'], near: ['Nearly due', 'info'] };
+var RN_ACTION = { auto_renew: ['Auto-renew', 'ok'], finish: ['Finish (P6 / PSLE)', 'bad'] };
 function rnTabs(on, n) {
   return '<div class="ov-tabs" id="rn-tabs"><a class="btn sm' + (on === 'due' ? ' on' : '') + '" href="' + hashOf('renewals', {}) + '">Due for renewal' + (n != null ? ' <span class="ov-cnt">' + n + '</span>' : '') + '</a>' +
     '<a class="btn sm' + (on === 'packages' ? ' on' : '') + '" href="' + hashOf('renewals', { tab: 'packages' }) + '">All packages</a></div>';
@@ -3267,20 +3268,29 @@ App.routes.renewals = function (root, ctx) {
   return cachedLoad(ctx, 'renewals', function () { return call('getRenewalsData'); }, function (rd) {
     setRenewBadge(rd.counts.due);
     var rows = rd.rows.filter(function (r) { return showDone || !r.notified_on; });
-    var h = rnTabs('due', rd.counts.due) + '<div class="card row"><span class="muted">' + rd.counts.due + ' to tell Danny \u00B7 listed from ' + rd.near + ' lessons left; most urgent first</span>' +
-      '<label class="right muted"><input type="checkbox" id="rn-done"' + (showDone ? ' checked' : '') + '> Show already notified</label></div>';
+    var nFinish = (rd.counts && rd.counts.due) || 0, nAuto = (rd.counts && rd.counts.auto_renew) || 0;
+    var h = rnTabs('due', nFinish) + '<div class="card row"><span class="muted">Auto-renew by default (no Danny notify) \u00B7 P6 near PSLE needs Finish \u00B7 ' + nFinish + ' Finish / ' + nAuto + ' auto-renew \u00B7 from ' + rd.near + ' left</span>' +
+      '<label class="right muted"><input type="checkbox" id="rn-done"' + (showDone ? ' checked' : '') + '> Show already handled</label></div>';
     h += '<div class="card" id="rn-list">' + (rows.length ? '<ul class="list">' + rows.map(function (r) {
       var st = RN_STATE[r.state] || ['', ''];
+      var act = RN_ACTION[r.action] || RN_ACTION.auto_renew;
+      var btns = '';
+      if (r.action === 'finish') {
+        btns = '<button type="button" class="sm bad" data-rn-finish>Finish</button>' +
+          '<button type="button" class="sm" data-rn-renew>Renewed anyway</button>';
+      } else {
+        btns = '<button type="button" class="sm ok" data-rn-renew>Record renewal</button>' +
+          '<button type="button" class="sm" data-rn-finish>Finish (withdraw)</button>';
+      }
       return '<li class="rn-item" data-rn="' + esc(r.student_id + '|' + r.programme) + '"><div class="row">' +
         '<a class="b-name" href="' + hashOf('student', { id: r.student_id, back: 'renewals' }) + '"><b>' + esc(r.name) + '</b></a>' + (r.label_prog ? ' <span class="b">' + esc(r.label_prog) + '</span>' : '') +
-        ' <span class="b ' + st[1] + '">' + esc(st[0]) + '</span> <b>' + esc(rnCountText(r)) + '</b>' +
-        (r.notified_on ? ' <span class="b ok">\u2713 Danny notified' + (r.notified_on !== 'yes' ? ' ' + esc(dw(r.notified_on)) : '') + '</span>' : '') +
-        '<span class="right row">' + (r.notified_on ? '' : '<button type="button" class="sm" data-rn-notify>Notified Danny</button>') +
-        '<button type="button" class="sm ok" data-rn-renew>Renewed</button><button type="button" class="sm" data-rn-finish>Finish</button></span></div>' +
-        '<small class="muted">' + esc(r.label) + (r.reached_on ? ' \u00B7 reached ' + esc(r.reached_n) + ' on ' + esc(dw(r.reached_on)) : '') + '</small>' +
+        ' <span class="b ' + st[1] + '">' + esc(st[0]) + '</span> <span class="b ' + act[1] + '">' + esc(act[0]) + '</span> <b>' + esc(rnCountText(r)) + '</b>' +
+        (r.notified_on ? ' <span class="b ok">\u2713 handled' + (r.notified_on !== 'yes' ? ' ' + esc(dw(r.notified_on)) : '') + '</span>' : '') +
+        '<span class="right row">' + btns + '</span></div>' +
+        '<small class="muted">' + esc(r.policy_note || '') + (r.label ? ' \u00B7 ' + esc(r.label) : '') + (r.reached_on ? ' \u00B7 reached ' + esc(r.reached_n) + ' on ' + esc(dw(r.reached_on)) : '') + '</small>' +
         '<div><small>' + (r.makeup_owed_h ? '<span class="b warn">Makeups owed ' + fmtH(r.makeup_owed_h) + '</span> ' : '<span class="muted">No makeups owed</span> ') +
         '<a href="' + hashOf('student', { id: r.student_id, back: 'renewals' }) + '">Open student page \u2192</a></small></div></li>';
-    }).join('') + '</ul>' : '<p class="muted">Nobody is near the end of their 12 lessons. \uD83C\uDF89</p>') + '</div>';
+    }).join('') + '</ul>' : '<p class="muted">Nobody needs Finish or a recorded renewal right now. \uD83C\uDF89</p>') + '</div>';
     root.innerHTML = h;
     $('#rn-done').onchange = function () { go('renewals', { notified: this.checked ? '' : '0' }); };
     $$('[data-rn]').forEach(function (li) {
@@ -3350,7 +3360,7 @@ function pkRoute(root, ctx) {
           pkLineHtml(p) + '<div class="row">' +
           (lc(p.status) === 'paused' ? '<button type="button" class="sm" data-pk="' + esc(p.package_id) + '" data-a="resume">Resume</button>' : (['active', ''].indexOf(lc(p.status)) >= 0 ? '<button type="button" class="sm" data-pk="' + esc(p.package_id) + '" data-a="pause">Pause</button>' : '')) +
           (['active', ''].indexOf(lc(p.status)) >= 0 ? '<button type="button" class="sm" data-pk="' + esc(p.package_id) + '" data-a="complete">Complete</button>' : '') +
-          (p.warn && !p.danny_notified_on ? '<button type="button" class="sm" data-pk="' + esc(p.package_id) + '" data-a="notified">Danny notified</button>' : '') +
+          '' + /* v0.3.21: no Danny-notify button on packages */
           (p.voided ? restoreBtn('Lesson_Packages', p.package_id) + (p.recalc_note ? '<small class="muted">' + esc(p.recalc_note) + '</small>' : '') :
           '<button type="button" class="sm" data-pk="' + esc(p.package_id) + '" data-a="edit">Edit</button>' +
           '<button type="button" class="sm" data-newfor="' + esc(p.student_id) + '">Renew / new package</button>' + voidBtn('Lesson_Packages', p.package_id)) +
@@ -3538,7 +3548,7 @@ function ibAction(it, a, btn, card) {
 </script>
 
   <script>
-(window.OPS_FILES = window.OPS_FILES || {})['PagesC'] = 'v0.3.17'; // OPS_BUILD PagesC v0.3.17 (the server checks this line, not the comment)
+(window.OPS_FILES = window.OPS_FILES || {})['PagesC'] = 'v0.3.21'; // OPS_BUILD PagesC v0.3.17 (the server checks this line, not the comment)
 /* ===== Pages C: Timetable \u00B7 Enquiries \u00B7 Attendance list / Overview / Past students \u00B7 Settings ===== */
 
 /* ---------------- Timetable ---------------- */
@@ -4169,6 +4179,10 @@ function downloadCsv(filename, csv) {
  * Newest first. Reconstructed from CHANGELOG_v030/v031, the README version sections, APPLY notes and the status log;
  * where a detail was not recorded the entry says so. */
 var RELEASE_NOTES = [
+  { v: 'v0.3.21', when: '19 Nov 2026', items: [
+    'Package renewals (Kyle 18–19 Nov): nearly-due packages auto-renew — do not notify Danny — unless a withdrawal is notified. Exception: P6 students near PSLE (Jul–Oct) need Finish, not auto-renew.',
+    '旧生 get no Package reminders; twice-a-week students still get reminders; 新生 rules unchanged (2 left / finish).',
+    'Renewals page copy and buttons updated (Auto-renew / Finish); Home renewals badge only counts P6 Finish.'] },
   { v: 'v0.3.17', when: '30 Oct 2026', items: ['Overview legend: the dashed mark now reads \u201cPlanned for make up\u201d (was \u201cDashed = planned\u201d).', 'Overview compact header (Kyle): smaller title, filters and summary, legend on one line (scrolls sideways on a phone). Filters, legend and summary scroll away with the page; only the grid\u2019s week header row and student-name column stay fixed, and the grid now uses almost the full screen height.'] },
   { v: 'v0.3.16', when: '30 Oct 2026', items: [
     'Overview: the blue M always means a makeup lesson. Legend and tooltips now just say \u201CMake up\u201D (no \u201CMissed\u201D, no \u201CNot linked to an absence\u201D). Red \u2717 (makeup owed) legend now says \u201CAbsent\u201D; its tooltips do not say \u201CMissed\u201D either. Makeups not linked to an absence still count as attended lessons.'] },
