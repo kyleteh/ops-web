@@ -3089,7 +3089,7 @@ function suSubmit() {
 </script>
 
   <script>
-(window.OPS_FILES = window.OPS_FILES || {})['PagesB'] = 'v0.3.21'; // OPS_BUILD PagesB v0.3.21 (the server checks this line, not the comment)
+(window.OPS_FILES = window.OPS_FILES || {})['PagesB'] = 'v0.3.22'; // OPS_BUILD PagesB v0.3.22 (the server checks this line, not the comment)
 /* ===== Pages B: Renewals (+ all packages) \u00B7 makeup dialogs (used on the student page) \u00B7 To-do (Inbox) ===== */
 
 /* ---------------- Makeups ----------------
@@ -3248,7 +3248,9 @@ function mkLinkModal(ev, btn) {
 var PK_FILTERS = [['active', 'Active'], ['warn', 'Nearly used (\u2265 total\u22122)'], ['paused', 'Paused'], ['closed', 'Completed / closed'], ['all', 'All'], ['none', 'Studying without a package'], ['void', 'Void']];
 /* ---------------- Renewals (v0.3.6; replaces Packages; v0.3.21 auto-renew) ----------------
  * v0.3.21 (Kyle 19 Nov 2026): nearly-due packages auto-renew — no Danny notify — unless withdrawal.
- * P6 near PSLE → Finish. 旧生 (except 2x/week) are omitted server-side. Tab 2 = all package records. */
+ * P6 near PSLE → Finish. 旧生 (except 2x/week) are omitted server-side. Tab 2 = all package records.
+ * v0.3.22 (Kyle 22 Nov 2026): "Renewed" prefills the size by rule (r.renew_size: #2 = lessons left in the term, #3+ = the
+ * term's lessons, 2x/week 12) instead of a fixed 12; the number stays editable (e.g. a signed 24). */
 var RN_STATE = { overdue: ['Overdue', 'bad'], unhandled: ['Reached, not handled', 'bad'], due: ['Due now', 'warn'], near: ['Nearly due', 'info'] };
 var RN_ACTION = { auto_renew: ['Auto-renew', 'ok'], finish: ['Finish (P6 / PSLE)', 'bad'] };
 function rnTabs(on, n) {
@@ -3310,7 +3312,8 @@ function rnRenew(r, btn, li) {
   var start = r.renew_start || '';
   modal({ title: 'Renewed: ' + r.name, ok: 'Record renewal', body: '<p>New package for <b>' + esc(r.name) + '</b> (' + esc(r.programme) + '). The older active package of this course is marked completed.</p>' +
     '<div class="grid-form"><label class="f">Counts from<input type="date" name="start_date" value="' + esc(start) + '"></label>' +
-    '<label class="f">Lessons<input type="number" name="lessons_total" value="12" min="1"></label></div>' +
+    '<label class="f">Lessons<input type="number" name="lessons_total" value="' + esc(String(r.renew_size || 12)) + '" min="1"></label></div>' +
+    (r.renew_size_basis ? '<p class="muted">Size by rule: ' + esc(r.renew_size_basis) + ' (change it if a different number was agreed).</p>' : '') +
     '<p class="muted">' + (start ? 'Lessons from ' + esc(dw(start)) + ' count to the new package' + (r.block_last ? ' (the next regular lesson after ' + esc(dw(r.block_last)) + ', the last lesson of this package)' : '') + '. You can change the date.' : 'Not at the end yet: enter the date of the first lesson of the new package.') + '</p>',
     validate: function (d) { if (!d.start_date) return 'Enter the date the new package counts from'; } }).then(function (d) {
     if (!d) return;
@@ -3548,7 +3551,7 @@ function ibAction(it, a, btn, card) {
 </script>
 
   <script>
-(window.OPS_FILES = window.OPS_FILES || {})['PagesC'] = 'v0.3.21'; // OPS_BUILD PagesC v0.3.17 (the server checks this line, not the comment)
+(window.OPS_FILES = window.OPS_FILES || {})['PagesC'] = 'v0.3.22'; // OPS_BUILD PagesC v0.3.22 (the server checks this line, not the comment)
 /* ===== Pages C: Timetable \u00B7 Enquiries \u00B7 Attendance list / Overview / Past students \u00B7 Settings ===== */
 
 /* ---------------- Timetable ---------------- */
@@ -4179,6 +4182,10 @@ function downloadCsv(filename, csv) {
  * Newest first. Reconstructed from CHANGELOG_v030/v031, the README version sections, APPLY notes and the status log;
  * where a detail was not recorded the entry says so. */
 var RELEASE_NOTES = [
+  { v: 'v0.3.22', when: '22 Nov 2026', items: [
+    'Package sizes (Kyle 22 Nov): first package 12 (or the signed size); second package = the lessons left in the term in which the first one finished; third and later = the term\u2019s lesson count for the student\u2019s slots. Twice a week: rounds of 12 as before.',
+    'Counts read the Lesson_Packages table: a recorded second package (e.g. 5 or 4 lessons) is the number the app uses.',
+    'Renewals: \u201cRenewed\u201d prefills the package size by these rules instead of 12 (still editable). Term counts show the term\u2019s real number of lessons (e.g. 11 for a Sunday class with a closure).'] },
   { v: 'v0.3.21', when: '19 Nov 2026', items: [
     'Package renewals (Kyle 18–19 Nov): nearly-due packages auto-renew — do not notify Danny — unless a withdrawal is notified. Exception: P6 students near PSLE (Jul–Oct) need Finish, not auto-renew.',
     '旧生 get no Package reminders; twice-a-week students still get reminders; 新生 rules unchanged (2 left / finish).',
