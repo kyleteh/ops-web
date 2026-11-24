@@ -1,13 +1,11 @@
 <!DOCTYPE html>
-<!-- Ops static page (v0.3.19 client) | data needs the Ops link + key on each device -->
+<!-- OPS_STATIC_SHELL v0.3.19 (Phase 3 + access key) | assembled from src/ + tools/static-transport.js | dual-track preview; not GitHub Pages -->
 
 <!-- OPS_BUILD Index v0.3.11 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <title>SAM Novena Ops</title>
   <style>
   /* OPS_BUILD Styles v0.3.9 */
@@ -483,7 +481,7 @@
       Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); });
     } catch (e) {}
   }
-  window.OPS_ENC = {"v": 1, "it": 600000, "s": "tS8OaA5DELaXm7qmZshXgQ==", "iv": "mOZSBWlh9G2asBsP", "ct": "86hJy7ppFE2Ci+qFgYfPFtviAVPuoEjOmq/xBruxya6UAZ++zoBfHNP/ijokk29jk6+a351OlgbBw8uboFg9pu/nOoI7iPlkqV3vUY/lgACHfoGnhU6glvkFFyRPeesKZ0/MnH4K3VVcxK+NrfBja7WFY5XDDA5DTf18P4RVP00="};
+  
   if (opsIdleExpired()) opsIdleForget();
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && opsIdleExpired()) { opsIdleForget(); location.reload(); }
@@ -554,49 +552,10 @@
     el.style.borderBottomColor = bad ? '#f87171' : '#f59e0b';
     el.innerHTML = msg;
   }
-
-  if (!api && window.OPS_ENC && window.crypto && crypto.subtle) {
-    var gateDec = function (pw) {
-      var E = window.OPS_ENC, ub = function (b) { var s = atob(b), a = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; };
-      return crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']).then(function (base) {
-        return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: ub(E.s), iterations: E.it }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-      }).then(function (k) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: ub(E.iv) }, k, ub(E.ct)); })
-        .then(function (b) { return new TextDecoder().decode(b); });
-    };
-    document.addEventListener('DOMContentLoaded', function () {
-      var g = document.createElement('div');
-      g.id = 'ops-gate';
-      g.style.cssText = 'position:fixed;inset:0;z-index:10001;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font:15px/1.4 system-ui,sans-serif';
-      g.innerHTML = '<form id="ops-gate-form" style="background:#fff;padding:24px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);width:min(320px,86vw);text-align:center">'
-        + '<img src="apple-touch-icon.png" alt="" style="width:64px;height:64px;border-radius:50%"><h2 style="margin:8px 0 14px;font-size:18px">SAM Novena Ops</h2>'
-        + '<input id="ops-gate-pw" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" placeholder="Password" '
-        + 'style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;border:1px solid #d1d5db;border-radius:6px">'
-        + '<button type="submit" id="ops-gate-go" style="margin-top:12px;width:100%;padding:10px;font-size:16px;background:#2563eb;color:#fff;border:0;border-radius:6px">Enter</button>'
-        + '<div id="ops-gate-msg" style="margin-top:10px;min-height:1.4em;color:#b91c1c;font-size:14px"></div></form>';
-      document.body.appendChild(g);
-      var inp = document.getElementById('ops-gate-pw'), msg = document.getElementById('ops-gate-msg'), btn = document.getElementById('ops-gate-go');
-      setTimeout(function () { inp.focus(); }, 50);
-      document.getElementById('ops-gate-form').onsubmit = function (ev) {
-        ev.preventDefault();
-        var pw = String(inp.value || '').replace(/\s+/g, '').toLowerCase();
-        if (!pw) { inp.focus(); return; }
-        btn.disabled = true; msg.style.color = '#6b7280'; msg.textContent = 'Checking\u2026';
-        gateDec(pw).then(function (u) {
-          if (!/^https:\/\//.test(u)) throw new Error('bad');
-          try {
-            localStorage.setItem('ops_api', u); localStorage.setItem('ops_key', pw); localStorage.removeItem('ops_cid'); localStorage.setItem('ops_last', String(Date.now()));
-            Object.keys(localStorage).forEach(function (k) { if (k.indexOf('opsnap:') === 0) localStorage.removeItem(k); });
-          } catch (e) {}
-          location.reload();
-        }, function () {
-          btn.disabled = false; msg.style.color = '#b91c1c'; msg.textContent = 'Wrong password. Try again.'; inp.select();
-        });
-      };
-    });
-  } else if (!api) {
+ if (!api) {
     document.addEventListener('DOMContentLoaded', function () {
       showBanner(
-        "Ops · first time on this device: paste the Ops link, then the key (both kept only on this device). "
+        "First-time setup: paste the Ops /exec URL (kept only on this device; it is not in the repo). "
         + 'The access key is asked next. '
         + '<input id="ops-api-input" type="url" placeholder="https://script.google.com/macros/s/…/exec" '
         + 'style="width:min(520px,70vw);margin:4px 6px;padding:4px 8px;font:12px monospace">'
@@ -622,7 +581,7 @@
       box.innerHTML = '<div id="ops-device-panel" style="display:none;margin-bottom:4px;padding:8px;background:#fff;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.12)">'
         + '<div style="margin-bottom:6px;color:#374151">Link and key are saved on this device only.</div>'
         + '<button type="button" id="ops-api-clear" style="padding:2px 8px;font-size:12px">Clear saved API</button> '
-        + '<button type="button" id="ops-key-forget" style="padding:2px 8px;font-size:12px">Forget password on this device</button></div>'
+        + '<button type="button" id="ops-key-forget" style="padding:2px 8px;font-size:12px">Forget key on this device</button></div>'
         + '<a href="javascript:void(0)" id="ops-device-toggle" style="color:#9ca3af;text-decoration:none">Device</a>';
       document.body.appendChild(box);
       var panel = document.getElementById('ops-device-panel');
@@ -762,7 +721,7 @@ function notSaved_(e) { return (e && e.ops && e.ops.maybe_saved) ? 'Unsure if sa
 <script>
 /* ===== SAM Novena Ops client core (v0.3.0; renamed v0.3.2): helpers, server calls (+ timings), page cache, hash router, top menu ===== */
 'use strict';
-(window.OPS_FILES = window.OPS_FILES || {})['App'] = 'v0.3.19'; // OPS_BUILD App v0.3.19 (the server checks this line, not the comment)
+(window.OPS_FILES = window.OPS_FILES || {})['App'] = 'v0.3.23'; // OPS_BUILD App v0.3.19 (the server checks this line, not the comment)
 var App = {
   ver: 'v0.3.14',
   mode: window.OPS_MODE || 'webapp',
@@ -1441,14 +1400,14 @@ function opsAskKey(code, detail) {
     var root = document.createElement('div');
     root.id = 'ops-key-root';
     root.style.cssText = 'position:fixed;inset:0;z-index:10000';
-    var title = code === 'locked' ? 'Locked for now' : code === 'setup' ? 'Server not set up' : had ? 'Wrong password' : 'Enter your Ops password';
-    var msg = code === 'locked' ? esc(detail || 'Too many wrong passwords from this device. Try again in 15 minutes.')
+    var title = code === 'locked' ? 'Locked for now' : code === 'setup' ? 'Server not set up' : had ? 'Key rejected' : 'Enter your Ops key';
+    var msg = code === 'locked' ? esc(detail || 'Too many wrong keys from this device. Try again in 15 minutes.')
       : code === 'setup' ? esc(detail || 'The access key is not set up on the server yet.')
-      : (had ? 'This device\u2019s saved password no longer works. Nothing was read or saved. Type the password again.' : 'Type the Ops password once on this device. It is remembered here.');
+      : (had ? 'This device\u2019s saved key was rejected. Nothing was read or saved. Type the key again.' : 'Type the access key once on this device. It is remembered here, so you will not be asked again.');
     var input = code === 'auth' ? '<p><input id="ops-key-input" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" ' +
-      'style="width:100%;box-sizing:border-box;padding:8px;font:14px monospace" placeholder="Password"></p>' : '';
+      'style="width:100%;box-sizing:border-box;padding:8px;font:14px monospace" placeholder="Ops access key"></p>' : '';
     root.innerHTML = '<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true"><h3>' + esc(title) + '</h3><div class="mbody"><p>' + msg + '</p>' + input +
-      '</div><div class="actions">' + (code === 'auth' ? '<button type="button" data-k="cancel">Cancel</button><button type="button" class="pri" data-k="ok">Enter</button>'
+      '</div><div class="actions">' + (code === 'auth' ? '<button type="button" data-k="cancel">Cancel</button><button type="button" class="pri" data-k="ok">Save key</button>'
       : '<button type="button" class="pri" data-k="cancel">OK</button>') + '</div></div></div>';
     document.body.appendChild(root);
     var inp = root.querySelector('#ops-key-input');
@@ -1564,12 +1523,14 @@ function snapGet(key) {
     var raw = window.localStorage && localStorage.getItem(SNAP_PREFIX + key);
     if (!raw) return null;
     var o = JSON.parse(raw);
-    return o && o.v === App.ver && o.day === localDay() ? o.d : null;
+    if (!o || o.v !== App.ver) return null;
+    if (o.ts) return (Date.now() - o.ts < 7 * 86400000) ? o.d : null;
+    return o.day === localDay() ? o.d : null;
   } catch (e) { return null; }
 }
 function snapPut(key, data) {
   try {
-    var s = JSON.stringify({ v: App.ver, day: localDay(), d: data });
+    var s = JSON.stringify({ v: App.ver, day: localDay(), ts: Date.now(), d: data });
     if (s.length > 1500000) return;
     localStorage.setItem(SNAP_PREFIX + key, s);
   } catch (e) { snapClear(); }
@@ -2708,7 +2669,7 @@ function stCountHtml(list) {
     var fp = isNew ? Math.min(100, Math.round(b.first_package / of * 100)) : 0;
     return '<div class="cnt-b" style="margin:6px 0"><div class="row"><span class="b info">' + esc(BASIS_LABEL[b.basis] || b.basis) + '</span>' +
       (b.programme && b.programme !== 'tuition' ? ' <small>' + esc(b.programme) + '</small>' : '') +
-      // v0.3.8: with a running package the card shows the same number as the Packages card, e.g. "P0xx: 4/12 (16 total)"
+      // v0.3.8: with a running package the card shows the same number as the Packages card, e.g. "P125: 4/12 (16 total)"
       ' <b class="cnt-n">' + (b.pkg ? esc(b.pkg.text) : (b.basis === 'cycle' ? 'Cycle ' + esc(b.cycle) + ' \u00B7 ' : '') + esc(b.count) + ' / ' + esc(of)) + '</b>' +
       (b.pkg && isNew ? ' <small class="muted">new student: ' + esc(b.count) + ' of ' + esc(of) + '</small>' : '') +
       (isNew ? ' <span class="b ' + (b.lessons_left <= 3 ? 'warn' : '') + '">' + (b.phase === 'first_package' ? 'First package: ' + esc(b.lessons_left) + ' left' : 'Second package: ' + esc(b.lessons_left) + ' left') + '</span>' : '') +
@@ -2942,7 +2903,7 @@ function pkLineHtml(p) {
 }
 
 /* ---------------- Sign up (one form, two entry points) ----------------
- * a) Trials page \u2192 "Sign up" on an assessment / trial record: #signup?trial=T0xx&from=trials (prefilled + linked)
+ * a) Trials page \u2192 "Sign up" on an assessment / trial record: #signup?trial=T012&from=trials (prefilled + linked)
  * b) Students page \u2192 "New student": #signup?from=students (direct; optional search to link prior records)
  * While typing the name / parent phone, similar assessment / trial records and existing students are suggested.
  */
@@ -3481,7 +3442,7 @@ function ibNewNote(btn) {
     '<label class="f">Type<select name="type">' + opts([['payment', 'Payment reminder'], ['note', 'Other note']], 'payment') + '</select></label>' +
     '<label class="f">Follow up on<input type="date" name="due_date"></label>' +
     '<label class="f wide">Student (optional)<input list="ib-dl" name="student" placeholder="Type a name\u2026"></label>' +
-    '<label class="f wide">Summary<textarea name="raw_summary" placeholder="e.g. a parent says a student has not paid Term 4"></textarea></label></div>' +
+    '<label class="f wide">Summary<textarea name="raw_summary" placeholder="e.g. Danny says Athena has not paid Term 4"></textarea></label></div>' +
     '<p class="muted">Only a reminder: no package or payment data is changed.</p>';
   modal({ title: 'Add an inbox note', ok: 'Add', body: body, validate: function (d) {
     if (!String(d.raw_summary || '').trim()) return 'Write a summary';
@@ -3509,7 +3470,7 @@ function ibAction(it, a, btn, card) {
           '<label class="f">Teacher<select name="teacher">' + opts(App.boot.teachers, '', 'default: regular teacher') + '</select></label></div>';
         timeOpen = function (m) { bindTimePair({ start: $('#ib-start', m), end: $('#ib-end', m), dur: $('#ib-dur', m), defaultDur: function () { return idur; } }); };
       } else {
-        body += '<div class="grid-form" style="margin-top:6px"><label class="f">Scope<input type="text" name="scope" value="novena" placeholder="all / novena / novena:SUN / teacher:Kyle / student:S0xx / grade:P6"></label>' +
+        body += '<div class="grid-form" style="margin-top:6px"><label class="f">Scope<input type="text" name="scope" value="novena" placeholder="all / novena / novena:SUN / teacher:Kyle / student:S001 / grade:P6"></label>' +
           '<label class="f">Type<select name="exc_type">' + opts(['closure', 'public_holiday', 'teacher_leave', 'exam', 'event'], lc(it.type) === 'teacher_leave' ? 'teacher_leave' : 'closure') + '</select></label>' +
           '<label class="f">End date<input type="date" name="end_date"></label>' +
           '<label class="f">Makeup policy<select name="makeup_policy">' + opts([['tbd', 'To be decided'], ['none', 'None'], ['extend', 'Extend'], ['makeup', 'Makeup']], 'tbd') + '</select></label>' +
@@ -3539,7 +3500,7 @@ function ibAction(it, a, btn, card) {
       return '<label class="f">' + x[0] + '<input type="' + x[1] + '" step="0.25" name="' + x[0] + '" value="' + esc(it[x[0]] || '') + '"></label>';
     }).join('') + '<label class="f">status<select name="status">' + opts(['pending', 'waiting', 'in_progress', 'done', 'dismissed'], lc(it.status)) + '</select></label>' +
       '<label class="f wide">raw_summary<textarea name="raw_summary">' + esc(it.raw_summary) + '</textarea></label>' +
-      '<label class="f wide">notes<textarea name="notes">' + esc(it.notes || '') + '</textarea></label></div><p class="muted">Several student_ids: separate with ; e.g. S0xx;S0yy.</p>' }).then(function (d) {
+      '<label class="f wide">notes<textarea name="notes">' + esc(it.notes || '') + '</textarea></label></div><p class="muted">Several student_ids: separate with ; e.g. S037;S048.</p>' }).then(function (d) {
       if (!d) return;
       var patch = {};
       Object.keys(d).forEach(function (k) { var old = String(it[k] === undefined || it[k] === null ? '' : it[k]); if (k === 'status') old = lc(old); if (d[k] !== old) patch[k] = d[k]; });
@@ -4195,7 +4156,7 @@ var RELEASE_NOTES = [
     'Overview: the blue M always means a makeup lesson. Legend and tooltips now just say \u201CMake up\u201D (no \u201CMissed\u201D, no \u201CNot linked to an absence\u201D). Red \u2717 (makeup owed) legend now says \u201CAbsent\u201D; its tooltips do not say \u201CMissed\u201D either. Makeups not linked to an absence still count as attended lessons.'] },
   { v: 'v0.3.15', when: '29 Oct 2026', items: [
     'Lesson-count reminders (Kyle): for every round / package, one reminder when 2 lessons are left and one when the round is finished. No reminder at 1 lesson left, unless more than a month passed between the lesson that reached 2 left and the lesson that reached 1 left.',
-    'Same targets as before: 12 for a round, the package size for a package (e.g. a 12-lesson package used up = lesson 24), the first package for new students, the next 12 for renewal checks. Renewal checks now start at 2 left (was 3) and add a separate "lessons reached" reminder when the round ends.'] },
+    'Same targets as before: 12 for a round, the package size for a package (e.g. P125 12/12 = lesson 24), the first package for new students, the next 12 for renewal checks. Renewal checks now start at 2 left (was 3) and add a separate "lessons reached" reminder when the round ends.'] },
   { v: 'v0.3.14', when: '25 Oct 2026', items: [
     'Attendance & makeups custom date range: only dates inside Term_Calendar weeks are listed as expected lessons. Dates after the last week (e.g. after Term 4 ends 6 Dec, before next year Term 1 is in the sheet) and mid-term holiday gaps are no longer invented as Sunday slots.',
     'Same rule for the advance-makeup / upcoming-lesson picker. When next year\u2019s Term_Calendar weeks are added, those dates appear automatically.'] },
@@ -4215,11 +4176,11 @@ var RELEASE_NOTES = [
     'Every new or changed suspension keeps who and when in its history (also in _Audit). Home To-do reminds when a suspension starts and a few days before and when it ends.',
     'New tab: Suspensions (see APPLY_v039).'] },
   { v: 'v0.3.8.1', when: '15 Oct 2026', items: [
-    'Lesson-count reminders: a new student in the second 12 with a running package (e.g. package P0xx) is reminded when that package is used up (a 12-lesson package used up = lesson 24), as the package says (warn_at_used), no longer at lesson 21 (\u201cabout to stop being new\u201d). Same reminder before and after the student stops being new.'] },
+    'Lesson-count reminders: a new student in the second 12 with a running package (e.g. Isaac P125, Kajtek P123, Muyao P124) is reminded when that package is used up (P125 12/12 = lesson 24), as the package says (warn_at_used), no longer at lesson 21 (\u201cabout to stop being new\u201d). Same reminder before and after the student stops being new.'] },
   { v: 'v0.3.8', when: '15 Oct 2026', items: [
     'Overview: one mark per lesson and no dates in the cells (tap a mark for date and time). Five looks: green check present, blue M made up (in the missed lesson\u2019s cell), red x makeup owed, grey dash no lesson or no makeup needed, faint ? no roll call. Dashed outline = planned. This term column = lessons and makeups owed.',
     'Preschool and individual students: a missed lesson not made up in the same week (Mon to Sun) owes no makeup. Such absences no longer show as owed on Home, Renewals, the student page or the roll call. not_tracked also means no makeup needed.',
-    'Packages: a completed package stops at the next package\u2019s start (or its completed date) and never shows more than its size. The student page shows only the current package; completed ones are folded. The lesson count card shows the same number, e.g. P0xx: 4/12 (16 total).',
+    'Packages: a completed package stops at the next package\u2019s start (or its completed date) and never shows more than its size. The student page shows only the current package; completed ones are folded. The lesson count card shows the same number, e.g. P125: 4/12 (16 total).',
     'Leave on a day with no regular lesson: roll call tags it No lesson that day, and saving such a leave shows a warning.',
     'Student page: Change regular time. The current slot ends the day before the first new lesson and a new slot row starts that day; nothing is edited in place.'] },
   { v: 'v0.3.7.1', when: '11 Oct 2026', items: [
@@ -4253,7 +4214,7 @@ var RELEASE_NOTES = [
     'Overview: one row per student. A makeup is shown in the cell of the lesson it replaces (\u201cM Sat 17/10\u201d); no more extra makeup rows or dashed guest rows in other classes.',
     'Makeups not linked to an absence are linked automatically to the EARLIEST absence not yet made up in the student\u2019s current package / 12-lesson cycle, never to an absence of an older package (roll call, Edit, and the default choice in the makeup lists, where older ones are marked \u201colder package\u201d).'] },
   { v: 'v0.3.4.2', when: '9 Oct 2026 \u00B7 deployment Version 21', items: [
-    'Students who come twice a week are always counted in continuous cycles of 12, with the reminder near each 12 (10 of 12). The new-student \u201cfirst package + 12\u201d count no longer applies to them (e.g. cycle 2, 11 of 12).'] },
+    'Students who come twice a week are always counted in continuous cycles of 12, with the reminder near each 12 (10 of 12). The new-student \u201cfirst package + 12\u201d count no longer applies to them (e.g. Long Yi: cycle 2; Kyle: cycle 1, 11 of 12).'] },
   { v: 'v0.3.4.1', when: '9 Oct 2026 \u00B7 deployment Version 20', items: [
     'Fixed garbled symbols on some phones (e.g. \u201c\u00C2\u00B7\u201d instead of \u201c\u00B7\u201d in the roll call \u201cMakes up which absence\u201d list). All symbols in the app are now written in a form no copy/paste or encoding step can change.'] },
   { v: 'v0.3.4', when: '9 Oct 2026 \u00B7 deployment Version 19', items: [
@@ -4391,7 +4352,7 @@ App.routes.settings = function (root, ctx) {
     };
     $('#ce-new').onclick = function () {
       modal({ title: 'New calendar exception', ok: 'Create', body: '<div class="grid-form"><label class="f">Date<input type="date" name="date" value="' + s.today + '"></label><label class="f">End date<input type="date" name="end_date"></label>' +
-        '<label class="f">Scope<input type="text" name="scope" value="novena" placeholder="all / novena / novena:SUN / teacher:Kyle / student:S0xx / grade:P6 / centre_home:lwsc"></label>' +
+        '<label class="f">Scope<input type="text" name="scope" value="novena" placeholder="all / novena / novena:SUN / teacher:Kyle / student:S001 / grade:P6 / centre_home:lwsc"></label>' +
         '<label class="f">Type<select name="type">' + opts(['closure', 'public_holiday', 'teacher_leave', 'exam', 'event'], 'closure') + '</select></label>' +
         '<label class="f">Makeup policy<select name="makeup_policy">' + opts([['tbd', 'To be decided'], ['none', 'None'], ['extend', 'Extend'], ['makeup', 'Makeup']], 'tbd') + '</select></label>' +
         '<label class="f wide">Title<input type="text" name="title"></label><label class="f wide">Instructions<input type="text" name="instructions"></label>' +
